@@ -6,8 +6,8 @@ class Agent:
     STATE_DIM = 2  # 주식 보유 비율, 포트폴리오 가치 비율
 
     # 매매 수수료 및 세금
-    TRADING_CHARGE = 0  # 거래 수수료 미고려 (일반적으로 0.015%)
-    TRADING_TAX = 0  # 거래세 미고려 (실제 0.3%)
+    TRADING_CHARGE = 0.00015  # 거래 수수료 미고려 (일반적으로 0.015%)
+    TRADING_TAX = 0.003  # 거래세 미고려 (실제 0.3%)
 
     # 행동
     ACTION_BUY = 0  # 매수
@@ -17,7 +17,7 @@ class Agent:
     NUM_ACTIONS = len(ACTIONS)  # 인공 신경망에서 고려할 출력값의 개수
 
     def __init__(
-        self, environment, min_trading_unit=1, max_trading_unit=2, 
+        self, environment, min_trading_unit=1, max_trading_unit=2,
         delayed_reward_threshold=.05):
         # Environment 객체
         self.environment = environment  # 현재 주식 가격을 가져오기 위해 환경 참조
@@ -36,11 +36,11 @@ class Agent:
         self.num_buy = 0  # 매수 횟수
         self.num_sell = 0  # 매도 횟수
         self.num_hold = 0  # 홀딩 횟수
-        self.immediate_reward = 0  # 즉시 보상
+        self.immediate_reward = 0  # 즉시 보상  ( 1 or -1 )
 
         # Agent 클래스의 상태
-        self.ratio_hold = 0  # 주식 보유 비율
-        self.ratio_portfolio_value = 0  # 포트폴리오 가치 비율
+        self.ratio_hold = 0  # 주식 보유 비율 / 최대 보유 가능 주식수
+        self.ratio_portfolio_value = 0  # 현재 포트폴리오 가치 비율 / 지연 보상 직전시 포트폴리오 가치
 
     def reset(self):
         self.balance = self.initial_balance
@@ -92,14 +92,14 @@ class Agent:
                 validity = False
         return validity
 
-    def decide_trading_unit(self, confidence):
+    def decide_trading_unit(self, confidence):      ##  0 <= confidence <=1
         if np.isnan(confidence):
             return self.min_trading_unit
         added_traiding = max(min(
             int(confidence * (self.max_trading_unit - self.min_trading_unit)),
             self.max_trading_unit-self.min_trading_unit
         ), 0)
-        return self.min_trading_unit + added_traiding
+        return self.min_trading_unit + added_traiding       # integer 값을 반환.
 
     def act(self, action, confidence):
         if not self.validate_action(action):
@@ -119,10 +119,8 @@ class Agent:
             # 보유 현금이 모자랄 경우 보유 현금으로 가능한 만큼 최대한 매수
             if balance < 0:
                 trading_unit = max(min(
-                    int(self.balance / (
-                        curr_price * (1 + self.TRADING_CHARGE))), self.max_trading_unit),
-                    self.min_trading_unit
-                )
+                    int(self.balance / (curr_price * (1 + self.TRADING_CHARGE))), self.max_trading_unit),
+                    self.min_trading_unit)
             # 수수료를 적용하여 총 매수 금액 산정
             invest_amount = curr_price * (1 + self.TRADING_CHARGE) * trading_unit
             self.balance -= invest_amount  # 보유 현금을 갱신

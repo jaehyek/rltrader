@@ -3,10 +3,12 @@ import os
 import settings
 import data_manager
 from policy_learner import PolicyLearner
-
+import datetime as dt
 
 if __name__ == '__main__':
-    stock_code = '005930'  # 삼성전자
+    stock_code = '005380'  # 현대차
+
+    now = dt.datetime.now()
 
     # 로그 기록
     log_dir = os.path.join(settings.BASE_DIR, 'logs/%s' % stock_code)
@@ -22,15 +24,12 @@ if __name__ == '__main__':
                         handlers=[file_handler, stream_handler], level=logging.DEBUG)
 
     # 주식 데이터 준비
-    chart_data = data_manager.load_chart_data(
-        os.path.join(settings.BASE_DIR,
-                     'data/chart_data/{}.csv'.format(stock_code)))
+    chart_data = data_manager.load_chart_data(os.path.join(settings.BASE_DIR,'data/chart_data/{}.csv'.format(stock_code)))
     prep_data = data_manager.preprocess(chart_data)
     training_data = data_manager.build_training_data(prep_data)
 
     # 기간 필터링
-    training_data = training_data[(training_data['date'] >= '2017-01-01') &
-                                  (training_data['date'] <= '2017-12-31')]
+    training_data = training_data[(training_data['date'] >= '2017-01-01') & (training_data['date'] <= '2017-12-31')]
     training_data = training_data.dropna()
 
     # 차트 데이터 분리
@@ -52,7 +51,7 @@ if __name__ == '__main__':
     # 강화학습 시작
     policy_learner = PolicyLearner(
         stock_code=stock_code, chart_data=chart_data, training_data=training_data,
-        min_trading_unit=1, max_trading_unit=2, delayed_reward_threshold=.2, lr=.001)
+        min_trading_unit=1, max_trading_unit=20, delayed_reward_threshold=.2, lr=.01)
     policy_learner.fit(balance=10000000, num_epoches=1000,
                        discount_factor=0, start_epsilon=.5)
 
@@ -62,3 +61,5 @@ if __name__ == '__main__':
         os.makedirs(model_dir)
     model_path = os.path.join(model_dir, 'model_%s.h5' % timestr)
     policy_learner.policy_network.save_model(model_path)
+
+    print(dt.datetime.now() - now )
