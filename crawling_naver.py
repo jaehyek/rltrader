@@ -4,8 +4,11 @@ import time
 
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
+import pandas as pd
+from datetime import  datetime, timedelta
 
-def GetApparatusForeignTradingInfoFromNaver(stockCode ):
+
+def GetInstitutionForeignTradingInfoFromNaver(dfref, stockCode,dateRecent, datePast ):
     """
     Naver Finance에서 기관,외국인 매매 Crawing 하는 함수
 
@@ -28,6 +31,9 @@ def GetApparatusForeignTradingInfoFromNaver(stockCode ):
     trendOfInvestorMaxPageSection = trendOfInvestorPageNavigation[0].find_all("td", class_="pgRR")
     trendOfInvestorMaxPageNum = int(trendOfInvestorMaxPageSection[0].a.get('href')[-3:])
 
+    col = ["date", "institutionPureDealing", "foreignerPureDealing", "ownedVolumeByForeigner", "ownedRateByForeigner"]
+    df = pd.DataFrame(columns=col)
+    done = False
     for page in range(1, trendOfInvestorMaxPageNum + 1):
         url = 'http://finance.naver.com/item/frgn.nhn?code=' + stockCode + '&page=' + str(page)
         html = urlopen(url)
@@ -49,27 +55,58 @@ def GetApparatusForeignTradingInfoFromNaver(stockCode ):
                 foreignerPureDealing = dayDataList[i].find_all("td", class_="num")[5].text
                 ownedVolumeByForeigner = dayDataList[i].find_all("td", class_="num")[6].text
                 ownedRateByForeigner = dayDataList[i].find_all("td", class_="num")[7].text
-                print("날짜: " + day, end=" ")
-                print("기관순매매: " + institutionPureDealing, end=" ")
-                print("외인순매매: " + foreignerPureDealing, end=" ")
-                print("외인보유 주식수: " + ownedVolumeByForeigner, end=" ")
-                print("외인 보유율: " + ownedRateByForeigner)
+
+                day = datetime.strptime(day, "%Y.%m.%d")
+                institutionPureDealing = int(institutionPureDealing.replace(",", ""))
+                foreignerPureDealing = int(foreignerPureDealing.replace(",", ""))
+                ownedVolumeByForeigner = int(ownedVolumeByForeigner.replace(",", ""))
+                ownedRateByForeigner = float(ownedRateByForeigner.replace("%", "")) / 100.
+                ownedRateByForeigner = round(ownedRateByForeigner, 6)
+
+                if (day > dateRecent ) :
+                    continue
+                elif ( day < datePast ):
+                    done = True
+                    break
+
+                listtemp = [day, institutionPureDealing, foreignerPureDealing, ownedVolumeByForeigner, ownedRateByForeigner ]
+                print(listtemp)
+                df = df.append(dict(zip(col, listtemp)), ignore_index=True)
+        if (done == True):
+            break
+
+    df = df.set_index("date")
+
+    dfres = pd.concat([dfref, df], axis=1)
+    print(dfres)
+
+    return dfres
 
 
-def GetStockTradingInfoFromNaver(stockCode):
+
+
+
+
+
+
+def GetStockTradingInfoFromNaver(stockCode,dateRecent, datePast ):
     """
-    네이버증권 일별시세 크롤링 방법 ( https://ldgeao99.wordpress.com/2017/04/17/%EB%84%A4%EC%9D%B4%EB%B2%84%EC%A6%9D%EA%B6%8C-%EC%A3%BC%EA%B0%80%EB%8D%B0%EC%9D%B4%ED%84%B0-%ED%81%AC%EB%A1%A4%EB%A7%81-%EB%B0%A9%EB%B2%95/ )
-    날짜: 2019.02.21 기관순매매: -128,361 외인순매매: -76,141 외인보유 주식수: 999,456 외인 보유율: 4.08%
-    날짜: 2019.02.20 기관순매매: 0 외인순매매: +1,808 외인보유 주식수: 1,075,597 외인 보유율: 4.39%
-    날짜: 2019.02.19 기관순매매: 0 외인순매매: +12,894 외인보유 주식수: 1,073,789 외인 보유율: 4.38%
-    날짜: 2019.02.18 기관순매매: 0 외인순매매: +1,103 외인보유 주식수: 1,060,895 외인 보유율: 4.33%
-    날짜: 2019.02.15 기관순매매: 0 외인순매매: -158,529 외인보유 주식수: 1,059,792 외인 보유율: 4.33%
+    날짜: 2019.02.28 종가: 3,100 시가: 2,485 고가: 3,130 저가: 2,475 거래량: 17,255,128
+    날짜: 2019.02.27 종가: 2,475 시가: 2,440 고가: 2,485 저가: 2,435 거래량: 201,703
+    날짜: 2019.02.26 종가: 2,440 시가: 2,450 고가: 2,490 저가: 2,435 거래량: 267,439
+    날짜: 2019.02.25 종가: 2,450 시가: 2,475 고가: 2,490 저가: 2,435 거래량: 225,572
+    날짜: 2019.02.22 종가: 2,485 시가: 2,465 고가: 2,495 저가: 2,445 거래량: 344,336
+    날짜: 2019.02.21 종가: 2,465 시가: 2,520 고가: 2,535 저가: 2,450 거래량: 557,773
     ...
+
+    return : DataFrame
 
     """
 
     #stockCode = '065450'  # 065450 빅텍
+    col = ["date", "open", "close", "high", "low", "volume"]
 
+    df = pd.DataFrame(columns=col)
     dayPriceUrl = 'http://finance.naver.com/item/sise_day.nhn?code=' + stockCode
     dayPriceHtml = urlopen(dayPriceUrl)
     dayPriceSource = BeautifulSoup(dayPriceHtml.read(), "html.parser")
@@ -78,6 +115,7 @@ def GetStockTradingInfoFromNaver(stockCode):
     dayPriceMaxPageSection = dayPricePageNavigation[0].find_all("td", class_="pgRR")
     dayPriceMaxPageNum = int(dayPriceMaxPageSection[0].a.get('href')[-3:])
 
+    done = False
     for page in range(1, dayPriceMaxPageNum + 1):
         url = 'http://finance.naver.com/item/sise_day.nhn?code=' + stockCode + '&page=' + str(page)
         html = urlopen(url)
@@ -97,36 +135,48 @@ def GetStockTradingInfoFromNaver(stockCode):
             if (srlists[i].span != isCheckNone):
                 day = srlists[i].find_all("td", align="center")[0].text
                 closingPrice = srlists[i].find_all("td", class_="num")[0].text
-
-                # srCompareWithYesterday = srlists[i].find("img")
-                # if (srCompareWithYesterday != None):
-                #     incOrdec = srCompareWithYesterday.get("src")
-                #     tagspan = srCompareWithYesterday.find("span")
-                #     absoluteVariation = tagspan.text
-                #     absoluteVariation = (srCompareWithYesterday.find("span").get_text()).strip()  # 부호가 포함되지 않은 전일비
-                #
-                #     if (incOrdec == "http://imgstock.naver.com/images/images4/ico_down.gif"):
-                #         variation = '-' + absoluteVariation
-                #     elif (
-                #             incOrdec == "http://imgstock.naver.com/images/images4/ico_up.gif" or incOrdec == "http://imgstock.naver.com/images/images4/ico_up02.gif"):
-                #         variation = '+' + absoluteVariation
-                # else:
-                #     variation = '0'
-
                 openingPrice = srlists[i].find_all("td", class_="num")[2].text
                 highestPrice = srlists[i].find_all("td", class_="num")[3].text
                 lowestPrice = srlists[i].find_all("td", class_="num")[4].text
                 volume = srlists[i].find_all("td", class_="num")[5].text
 
-                print("날짜: " + day, end=" ")
-                print("종가: " + closingPrice, end=" ")
-                # print("전일비: " + variation, end=" ")
-                print("시가: " + openingPrice, end=" ")
-                print("고가: " + highestPrice, end=" ")
-                print("저가: " + lowestPrice, end=" ")
-                print("거래량: " + volume)
+                day = datetime.strptime(day, "%Y.%m.%d")
+                closingPrice = int(closingPrice.replace(",", ""))
+                openingPrice = int(openingPrice.replace(",", ""))
+                highestPrice = int(highestPrice.replace(",", ""))
+                lowestPrice = int(lowestPrice.replace(",", ""))
+                volume = int(volume.replace(",", ""))
+
+                if (day > dateRecent ) :
+                    continue
+                elif ( day < datePast ):
+                    done = True
+                    break
+
+                listtemp = [day, openingPrice, closingPrice, highestPrice, lowestPrice, volume]
+                print(listtemp)
+                df = df.append(dict(zip(col, listtemp)), ignore_index=True)
+
+        if( done == True):
+            break
+
+    df = df.set_index("date")
+
+    return df
+
 
 
 if __name__ == "__main__" :
-    #GetApparatusForeignTradingInfoFromNaver('065450')
-    GetStockTradingInfoFromNaver('065450')
+    dateRecent = datetime.strptime("2019-02-28", "%Y-%m-%d" )
+    dateDelta = timedelta(days=365 * 1)
+    datePast = dateRecent - dateDelta
+    df = GetStockTradingInfoFromNaver('065450',dateRecent, datePast )
+
+    dfres = GetInstitutionForeignTradingInfoFromNaver(df, '065450',dateRecent, datePast )
+    # dfres.to_hdf("sample.h5", "df")
+    dfres.to_csv("sample.csv")
+
+    # df = pd.read_hdf("sample.h5", "df")
+    # df.to_csv("sample.csv")
+
+    
