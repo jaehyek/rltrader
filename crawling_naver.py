@@ -164,19 +164,117 @@ def GetStockTradingInfoFromNaver(stockCode,dateRecent, datePast ):
 
     return df
 
+def ExchangeDaily_USDKRW(dateRecent, datePast ):
+    """
+    원달러 환율표에서 매매기준율 을 가져오기
+    url = https://finance.naver.com/marketindex/exchangeDailyQuote.nhn?marketindexCd=FX_USDKRW
+    :return:
+    """
+
+    col = ["date", "usdkrw"]
+
+    df = pd.DataFrame(columns=col)
+    dayExchangeUrl = 'https://finance.naver.com/marketindex/exchangeDailyQuote.nhn?marketindexCd=FX_USDKRW'
+    dayExchangePageSection = dayExchangeUrl + '&page='
+
+    # 먼저 시작 일자를 찾는다.
+    pageindex = 1
+    done = False
+    while(1):
+        UrlPage = dayExchangePageSection + str(pageindex)
+        dayExchangeSource = BeautifulSoup(urlopen(UrlPage), "html.parser")
+        listtr = dayExchangeSource.find("tbody").find_all("tr")
+
+        for tr in listtr :
+            listtd = tr.find_all("td")
+            day = listtd[0].text
+            price = listtd[1].text
+
+
+            day = datetime.strptime(day, "%Y.%m.%d")
+            price = float(price.replace(",", ""))
+
+            if (day > dateRecent):
+                continue
+            elif (day < datePast):
+                done = True
+                break
+
+            listtemp = [day, price]
+            # print(listtemp)
+            df = df.append(dict(zip(col, listtemp)), ignore_index=True)
+
+        if done == True :
+            break;
+
+        pageindex = pageindex + 1
+
+    return df
+
+def OilDaily_DU(dateRecent, datePast ):
+    """
+    두바이유 매매기준율 을 가져오기
+    url = https://finance.naver.com/marketindex/worldDailyQuote.nhn?marketindexCd=OIL_DU&fdtc=2
+    :return:
+    """
+
+    col = ["date", "oil_du"]
+
+    df = pd.DataFrame(columns=col)
+    dayExchangeUrl = 'https://finance.naver.com/marketindex/worldDailyQuote.nhn?marketindexCd=OIL_DU&fdtc=2'
+    dayExchangePageSection = dayExchangeUrl + '&page='
+
+    # 먼저 시작 일자를 찾는다.
+    pageindex = 1
+    done = False
+    while(1):
+        UrlPage = dayExchangePageSection + str(pageindex)
+        dayExchangeSource = BeautifulSoup(urlopen(UrlPage), "html.parser")
+        listtr = dayExchangeSource.find("tbody").find_all("tr")
+
+        for tr in listtr :
+            listtd = tr.find_all("td")
+            day = listtd[0].text.strip()
+            price = listtd[1].text.strip()
+
+
+            day = datetime.strptime(day, "%Y.%m.%d")
+            price = float(price.replace(",", ""))
+
+            if (day > dateRecent):
+                continue
+            elif (day < datePast):
+                done = True
+                break
+
+            listtemp = [day, price]
+            # print(listtemp)
+            df = df.append(dict(zip(col, listtemp)), ignore_index=True)
+
+        if done == True :
+            break;
+
+        pageindex = pageindex + 1
+
+    return df
+
 
 
 if __name__ == "__main__" :
     dateRecent = datetime.strptime("2019-02-28", "%Y-%m-%d" )
-    dateDelta = timedelta(days=365 * 1)
+    dateDelta = timedelta(days=365 * 3)
     datePast = dateRecent - dateDelta
-    df = GetStockTradingInfoFromNaver('065450',dateRecent, datePast )
+    # df = GetStockTradingInfoFromNaver('065450',dateRecent, datePast )
+    #
+    # dfres = GetInstitutionForeignTradingInfoFromNaver(df, '065450',dateRecent, datePast )
+    # # dfres.to_hdf("sample.h5", "df")
+    # dfres.to_csv("sample.csv")
+    #
+    # # df = pd.read_hdf("sample.h5", "df")
+    # # df.to_csv("sample.csv")
 
-    dfres = GetInstitutionForeignTradingInfoFromNaver(df, '065450',dateRecent, datePast )
-    # dfres.to_hdf("sample.h5", "df")
-    dfres.to_csv("sample.csv")
+    # df = ExchangeDaily_USDKRW(dateRecent, datePast)
+    # df.to_csv("Exchange_usdkrw.csv")
 
-    # df = pd.read_hdf("sample.h5", "df")
-    # df.to_csv("sample.csv")
-
-    
+    df = OilDaily_DU(dateRecent, datePast)
+    df.to_csv("oil_du.csv")
