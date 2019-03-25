@@ -1,7 +1,4 @@
 
-import urllib
-import time
-
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -259,6 +256,57 @@ def OilDaily_DU(dateRecent, datePast ):
     return df
 
 
+def IndiceDaily_DJI(dateRecent, datePast ):
+    """
+    다우 산업 매매기준율 을 가져오기
+    url = https://finance.naver.com/world/sise.nhn?symbol=DJI@DJI#
+    :return:
+    """
+
+    col = ["date", "Ind_DJI"]
+
+    df = pd.DataFrame(columns=col)
+    dayExchangeUrl = 'https://finance.naver.com/world/sise.nhn?symbol=DJI@DJI#'
+    dayExchangePageSection = dayExchangeUrl + '&page='
+
+    # 먼저 시작 일자를 찾는다.
+    pageindex = 1
+    done = False
+    while(1):
+        UrlPage = dayExchangePageSection + str(pageindex)
+        dayExchangeSource = BeautifulSoup(urlopen(UrlPage), "html.parser")
+        listtr = dayExchangeSource.find("div", {"class":"section_quot"}).find("tbody").find_all("tr")
+
+        print(".", end="")
+        if(pageindex % 20 == 0 ):
+            print("")
+
+        for tr in listtr :
+            listtd = tr.find_all("td")
+            day = listtd[0].text.strip()
+            price = listtd[1].text.strip()
+
+
+            day = datetime.strptime(day, "%Y.%m.%d")
+            price = float(price.replace(",", ""))
+
+            if (day > dateRecent):
+                continue
+            elif (day < datePast):
+                done = True
+                break
+
+            listtemp = [day, price]
+            print(listtemp)
+            df = df.append(dict(zip(col, listtemp)), ignore_index=True)
+
+        if done == True :
+            break;
+
+        pageindex = pageindex + 1
+
+    return df
+
 
 if __name__ == "__main__" :
     dateRecent = datetime.strptime("2019-02-28", "%Y-%m-%d" )
@@ -277,4 +325,5 @@ if __name__ == "__main__" :
     # df.to_csv("Exchange_usdkrw.csv")
 
     df = OilDaily_DU(dateRecent, datePast)
-    df.to_csv("oil_du.csv")
+    df.to_csv("Oil_du.csv")
+
